@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+<head>
+    <meta charset="utf-8">
+    <title>历代科学成就的数据可视化演变</title>
+    <style>
+        /* 全局样式 */
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: "Microsoft YaHei", sans-serif;
+            overflow: hidden;
+        }
+        
+        /* 封面样式 */
+        .cover-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.5s ease;
+            z-index: 1000;
+        }
+
+        .cover-content {
+            text-align: center;
+            color: white;
+            user-select: none;
+        }
+
+        .cover-title {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
+        }
+
+        .cover-tip {
+            font-size: 1.5em;
+            animation: pulse 2s infinite;
+            opacity: 0.9;
+        }
+        
+        /* 主布局 */
+        .main-container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        
+        /* 左侧柱状图容器 */
+        #chart-container {
+            width: 400px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+            overflow: hidden;
+        }
+        
+        /* 中间地图容器 */
+        #map-container {
+            flex: 1;
+            min-width: 600px;
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        /* 右侧控制面板 */
+        #control-panel {
+            width: 300px;
+            background: #f0f3f6;
+            padding: 20px;
+            border-left: 1px solid #ddd;
+            overflow-y: auto;
+        }
+        
+        /* 面板标题 */
+        .panel-title {
+            color: #2c3e50;
+            font-size: 18px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        /* 图表容器 */
+        .chart {
+            width: 100%;
+            height: 800px;
+        }
+        
+        /* 省份卡片样式 */
+        .city-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .city-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .city-info {
+            font-size: 12px;
+            color: #666;
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+
+        .city-links {
+            display: flex;
+            gap: 10px;
+        }
+
+        .link-btn {
+            flex: 1;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .local-link {
+            background: #52c41a;
+            color: white;
+        }
+
+        .external-link {
+            background: #1890ff;
+            color: white;
+        }
+
+        .link-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        /* 动画效果 */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+
+        /* 工具提示优化 */
+        .echarts-tooltip {
+            background: rgba(255,255,255,0.95)!important;
+            border-radius: 8px!important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15)!important;
+            padding: 15px!important;
+            line-height: 1.6;
+        }
+        .tooltip-title {
+            font-weight: bold;
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .tooltip-value {
+            color: #1890ff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- 封面页 -->
+    <div class="cover-container" id="cover">
+        <div class="cover-content">
+            <h1 class="cover-title">中国科学家分布</h1>
+            <p class="cover-tip">点击探索历史科学成就</p>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-container" style="display: none;">
+        <!-- 左侧柱状图 -->
+        <div id="chart-container">
+            <div class="panel-title">各省历史科学家数量</div>
+            <div id="barChart" class="chart"></div>
+        </div>
+        
+        <!-- 中间地图 -->
+        <div id="map-container"></div>
+        
+        <!-- 右侧导航 -->
+        <div id="control-panel">
+            <div class="panel-title">省份科学成就</div>
+            <div id="province-list"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts/map/js/china.js"></script>
+
+    <script>
+        // 省份数据配置（含历史科学家信息）
+        const provinceData = [
+            {
+                name: '北京市',
+                coord: [116.40, 39.90],
+                scientists: 58,
+                notable: "郭守敬（天文学家）、华罗庚（数学家）",
+                links: {
+                    local: 'file:///D:/html/Bj.html',
+                    external: ''
+                }
+            },
+            {
+                name: '上海市',
+                coord: [121.47, 31.23],
+                scientists: 42,
+                notable: "钱伟长（力学家）、吴文俊（数学家）、谈家桢（遗传学家）",
+                links: {
+                    local: 'shanghai.html',
+                    external: ''
+                }
+            },
+            {
+                name: '江苏省',
+                coord: [118.78, 32.04],
+                scientists: 67,
+                notable: "祖冲之（数学家）、徐光启（农学家）、茅以升（桥梁专家）",
+                links: {
+                    local: 'jiangsu.html',
+                    external: ''
+                }
+            },
+            {
+                name: '浙江省',
+                coord: [120.15, 30.28],
+                scientists: 53,
+                notable: "沈括（《梦溪笔谈》）、竺可桢（气象学家））",
+                links: {
+                    local: 'zhejiang.html',
+                    external: ''
+                }
+            },
+            {
+                name: '河南省',
+                coord: [113.65, 34.76],
+                scientists: 36,
+                notable: "张衡（发明地动仪）、张仲景（医圣）、杜康（酿酒始祖）",
+                links: {
+                    local: 'henan.html',
+                    external: ''
+                }
+            },
+            {
+                name: '广东省',
+                coord: [113.23, 23.16],
+                scientists: 38,
+                notable: "",
+                links: {
+                    local: 'Gd.html',
+                    external: ''
+                }
+            },
+            {
+                name: '海南省',
+                coord: [110.35,20.02],
+                scientists: 33,
+                notable: "",
+                links: {
+                    local: 'Hn.html',
+                    external: ''
+                }
+            },
+            {
+                name: '广西省',
+                coord: [108.33,22.84],
+                scientists: 33,
+                notable: "",
+                links: {
+                    local: 'Gx.html',
+                    external: ''
+                }
+            },
+            {
+                name: '江西省',
+                coord: [115.89,28.68],
+                scientists: 33,
+                notable: "",
+                links: {
+                    local: 'Jx.html',
+                    external: ''
+                }
+            },
+            {
+                name: '湖南省',
+                coord: [113,28.21],
+                scientists: 33,
+                notable: "",
+                links: {
+                    local: 'Hn.html',
+                    external: ''
+                }
+            },
+            {
+                name: '安徽省',
+                coord: [117.27,31.86],
+                scientists: 31,
+                notable: "",
+                links: {
+                    local: 'Ah.html',
+                    external: ''
+                }
+            },
+            {
+                name: '福建省',
+                coord: [119.3,26.08],
+                scientists: 31,
+                notable: "",
+                links: {
+                    local: 'Fj.html',
+                    external: ''
+                }
+            },
+            {
+                name: '西藏省',
+                coord: [91.11,29.97],
+                scientists: 31,
+                notable: "",
+                links: {
+                    local: 'Xz.html',
+                    external: ''
+                }
+            },
+            {
+                name: '湖北省',
+                coord: [114.31,30.52],
+                scientists: 31,
+                notable: "",
+                links: {
+                    local: 'Hb.html',
+                    external: ''
+                }
+            },
+            {
+                name: '山东省',
+                coord: [117,36.65],
+                scientists: 31,
+                notable: "",
+                links: {
+                    local: 'Sd.html',
+                    external: ''
+                }
+            },
+            {
+                name: '四川省',
+                coord: [104.06,30.67],
+                scientists: 31,
+                notable: "",
+                links: {
+                    local: 'Sc.html',
+                    external: ''
+                }
+            },
+            {
+                name: '贵州省',
+                coord: [106.71,26.57],
+                scientists: 31,
+                notable: "",
+                links: {
+                    local: 'Gz.html',
+                    external: ''
+                }
+            },
+        ];
+
+        let mapChart = null;
+        let barChart = null;
+
+        // 封面点击事件
+        document.getElementById('cover').addEventListener('click', function() {
+            this.style.opacity = '0';
+            setTimeout(() => {
+                this.style.display = 'none';
+                document.querySelector('.main-container').style.display = 'flex';
+                initSystem();
+            }, 500);
+        });
+
+        // 初始化系统
+        function initSystem() {
+            // 初始化图表
+            mapChart = echarts.init(document.getElementById('map-container'));
+            barChart = echarts.init(document.getElementById('barChart'));
+            
+            // 地图配置
+            const mapOption = {
+                title: {
+                    text: '中国历史科学家分布',
+                    subtext: '数据来源：中国科学技术史',
+                    left: 'center',
+                    textStyle: { 
+                        color: '#2c3e50',
+                        fontSize: 20
+                    }
+                },
+                tooltip: {
+                    trigger: 'item',
+                    formatter: params => {
+                        const province = provinceData.find(p => p.name === params.name);
+                        return `
+                            <div class="tooltip-title">${params.name}</div>
+                            <div>历史科学家: <span class="tooltip-value">${province.scientists}人</span></div>
+                            <div style="margin-top:8px">著名代表:</div>
+                            <div style="color:#666">${province.notable || '暂无详细数据'}</div>
+                        `;
+                    }
+                },
+                geo: {
+                    map: 'china',
+                    roam: true,
+                    zoom: 1.2,
+                    center: [105, 36],
+                    label: {
+                        show: true,
+                        color: '#444',
+                        fontSize: 12
+                    },
+                    itemStyle: {
+                        areaColor: '#e6f7ff',
+                        borderColor: '#096dd9',
+                        borderWidth: 0.8
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            areaColor: '#1890ff',
+                            shadowColor: 'rgba(0, 0, 0, 0.5)',
+                            shadowBlur: 12
+                        }
+                    }
+                },
+                series: [{
+                    type: 'scatter',
+                    coordinateSystem: 'geo',
+                    data: provinceData.map(item => ({
+                        name: item.name,
+                        value: [...item.coord, item.scientists],
+                        notable: item.notable
+                    })),
+                    symbolSize: function(val) {
+                        return Math.min(30, Math.max(10, val[2] * 0.6));  // 动态大小
+                    },
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#1890ff' },
+                            { offset: 1, color: '#1890ff' }
+                        ]),
+                        borderColor: '#fff',
+                        borderWidth: 1
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    }
+                }]
+            };
+
+            // 柱状图配置
+            const barOption = {
+                title: {
+                    text: '各省历史科学家数量排名',
+                    subtext: '朝代科学巨著数据图',
+                    sublink: 'file:///D:/html/Yq.html',
+                    left: 'center',
+                    textStyle: {
+                        fontSize: 16,
+                        color: '#2c3e50'
+                    }
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    formatter: params => {
+                        const province = provinceData.find(p => p.name === params[0].name);
+                        return `
+                            <div class="tooltip-title">${params[0].name}</div>
+                            <div>科学家数量: <span class="tooltip-value">${params[0].value}人</span></div>
+                            <div style="margin-top:8px">著名代表:</div>
+                            <div style="color:#666">${province.notable || '暂无详细数据'}</div>
+                        `;
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: provinceData.map(item => item.name),
+                    axisLabel: {
+                        rotate: 45,
+                        interval: 0,
+                        fontSize: 12
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '科学家数量（人）',
+                    nameTextStyle: {
+                        padding: [0, 0, 0, 40]
+                    }
+                },
+                series: [{
+                    type: 'bar',
+                    data: provinceData.map(item => ({
+                        name: item.name,
+                        value: item.scientists,
+                        notable: item.notable
+                    })),
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#1890ff' },
+                            { offset: 1, color: '#d3adf7' }
+                        ])
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    }
+                }]
+            };
+
+            mapChart.setOption(mapOption);
+            barChart.setOption(barOption);
+
+            // 生成省份导航面板
+            const provinceList = document.getElementById('province-list');
+            provinceData.forEach(province => {
+                const card = document.createElement('div');
+                card.className = 'city-card';
+                card.innerHTML = `
+                    <div class="city-name">${province.name}</div>
+                    <div class="city-info">
+                        历史科学家: <strong>${province.scientists}人</strong><br>
+                        著名代表:<br>
+                        <span style="color:#666;font-size:11px">${province.notable}</span>
+                    </div>
+                    <div class="city-links">
+                        ${province.links.local ? 
+                            `<button class="link-btn local-link" data-link="${province.links.local}">
+                                详情
+                            </button>` : ''}
+                        ${province.links.external ? 
+                            `<button class="link-btn external-link" data-link="${province.links.external}">
+                                官网
+                            </button>` : ''}
+                    </div>
+                `;
+
+                // 绑定点击事件
+                card.querySelectorAll('.link-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const link = this.dataset.link;
+                        if (link.startsWith('http')) {
+                            window.open(link, '_blank');
+                        } else {
+                            window.location.href = link;
+                        }
+                    });
+                });
+
+                provinceList.appendChild(card);
+            });
+
+            // 地图点击事件
+            mapChart.on('click', params => {
+                if (params.componentType === 'geo') {
+                    const province = provinceData.find(p => p.name === params.name);
+                    if (province?.links?.local) {
+                        window.location.href = province.links.local;
+                    }
+                }
+            });
+
+            // 柱状图点击事件（联动地图）
+            barChart.on('click', params => {
+                const province = provinceData.find(p => p.name === params.name);
+                if (province) {
+                    mapChart.dispatchAction({
+                        type: 'highlight',
+                        name: province.name
+                    });
+                    
+                    mapChart.dispatchAction({
+                        type: 'showTip',
+                        name: province.name,
+                        position: 'right'
+                    });
+                }
+            });
+
+            // 窗口自适应
+            window.addEventListener('resize', function() {
+                mapChart.resize();
+                barChart.resize();
+            });
+        }
+    </script>
+</body>
+</html>

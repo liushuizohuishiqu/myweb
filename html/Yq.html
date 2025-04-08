@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>动态时间轴示例</title>
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.staticfile.org/echarts/5.4.2/echarts.min.js"></script>
+</head>
+<body>
+    <div id="chart" style="width: 1000px;height:500px;"></div>
+    
+    <script>
+        // 初始化图表
+        const chartDom = document.getElementById('chart');
+        const myChart = echarts.init(chartDom);
+        
+        // 初始数据
+        let data = [];
+        let baseTime = +new Date();
+        
+        // 配置项
+        const option = {
+            title: {
+                text: '实时数据监控'
+            },
+            tooltip: {
+                trigger: 'axis',
+                formatter: function (params) {
+                    const date = new Date(params[0].value[0]);
+                    return `${date.toLocaleTimeString()}<br/>数量: ${params[0].value[1]}`;
+                }
+            },
+            xAxis: {
+                type: 'time',
+                name: '时间',
+                splitLine: {
+                    show: false
+                }
+            },
+            yAxis: {
+                type: 'value',
+                name: '数量',
+                min: 0,
+                max: 100
+            },
+            series: [{
+                name: '数据',
+                type: 'line',
+                showSymbol: false,
+                data: data
+            }]
+        };
+
+        // 初始设置
+        option && myChart.setOption(option);
+
+        // 模拟实时数据更新
+        setInterval(function () {
+            // 生成新数据点（时间递增，随机数值）
+            const now = new Date(baseTime += 1000);  // 每秒前进
+            const value = Math.random() * 100;
+            
+            // 添加新数据（保留最近20个数据点）
+            data.push([now, value]);
+            if (data.length > 20) {
+                data.shift();
+            }
+
+            // 更新图表
+            myChart.setOption({
+                series: [{
+                    data: data
+                }]
+            });
+        }, 1000);  // 每秒更新一次
+
+        // 窗口大小改变时自适应
+        window.addEventListener('resize', function() {
+            myChart.resize();
+        });
+    </script>
+</body>
+</html>
